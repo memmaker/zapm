@@ -7,7 +7,7 @@
 shGlyph ObjectGlyphs[kMaxObjectType];
 
 char ObjectSymbols[] = { '9', '$', '+', '?', '!', '(', '[', 
-                         ')', '=', '%', '&', '/' };
+                         ')', '=', '%', '&', '/', '*' }; /* RVIP: kEnergyCell was missing (ASan) */
 
 
 

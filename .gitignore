@@ -1,5 +1,4 @@
+zapm-x11
+user/
+port/obj/
 *.o
-build
-zapm
-config.h
-zapm.tar.gz

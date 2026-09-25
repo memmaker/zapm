@@ -161,6 +161,9 @@ shInterface::shInterface ()
 
     initializeCommands ();
     initializeGlyphs ();
+#ifdef ZAPM_SHIM
+    wc_windows (mMainWin, mSideWin, mLogWin);
+#endif
 
 #ifdef SH_DEBUG
     char dbgfilename[40];
@@ -423,6 +426,9 @@ shInterface::initializeCommands ()
     MAPKEY (KEY_C3, kMoveSE);
 #endif
 
+    MAPKEY ('X', kExplore);
+    MAPKEY ('\r', kEnter);
+    MAPKEY ('\n', kEnter);
     MAPKEY ('@', kToggleAutopickup);
     MAPKEY (',', kPickup);
     MAPKEY (':', kLookHere);
@@ -502,8 +508,10 @@ shInterface::initializeCommands ()
     mCommandHelp[kLookHere] = "Look at what is here";
     mCommandHelp[kLookThere] = "Look at a feature or monster";
 
-    mCommandHelp[kMoveDown] = "Climb down stairs";
-    mCommandHelp[kMoveUp] = "Climb up stairs";
+    mCommandHelp[kMoveDown] = "Climb down stairs (else walk to known ones)";
+    mCommandHelp[kMoveUp] = "Climb up stairs (else walk to known ones)";
+    mCommandHelp[kExplore] = "Explore automatically (any key stops)";
+    mCommandHelp[kEnter] = "Command menu";
     mCommandHelp[kMutantPower] = "Zap a mutant power";
     mCommandHelp[kName] = "Name an object or class of objects";
     mCommandHelp[kOpen] = "Open a door";
@@ -868,6 +876,8 @@ shInterface::vp (const char *format, va_list ap)
     char strbuf[buflen];
     int res;
 
+    extern int RvipMsgs;
+    RvipMsgs++;
     if (6 == ++mLogSCount || mPause) {
         doMorePrompt ();
         mLogSCount = 1;
@@ -1047,6 +1057,7 @@ shMenu::shMenu (const char *prompt, int flags)
     mPanel = NULL;
     mHeight = 0;
     mOffset = 0;
+    mCursor = -1;
     mDone = 0;
     getmaxyx(stdscr, mHeight, mWidth);
 
@@ -1234,6 +1245,7 @@ shMenu::accumulateResults ()
                               item->mLetter, item->mText);
                 }
             }
+            if (i == mCursor) wattrset (win, A_REVERSE);
             mvwaddnstr (win, 1 + i - mOffset, 1, buf, width);
             wattrset (win, A_NORMAL);
         }
@@ -1242,11 +1254,34 @@ shMenu::accumulateResults ()
         } else {
             mvwaddnstr (win, 1 + i - mOffset, 1, "--More--", width);
         }
+        /* RVIP: cursor on a selectable choice of this page */
+        if (!(mFlags & kNoPick)) {
+            if (mCursor < mOffset || mCursor >= n) mCursor = mOffset;
+            while (mCursor < n - 1 && mChoices.get (mCursor)->mCount < 0) mCursor++;
+            wmove (win, 1 + mCursor - mOffset, 1);
+        }
         update_panels (); 
         doupdate();
 
         while (1) {
             key = I->getChar (win);
+            if (!(mFlags & kNoPick) && ('8' == key || '2' == key)) {
+                int c = mCursor;
+                do c += '8' == key ? -1 : 1;
+                while (c >= mOffset && c < n && mChoices.get (c)->mCount < 0);
+                if (c >= mOffset && c < n) mCursor = c;
+                else if (c >= n && n < mChoices.count ()) mOffset = mCursor = n;
+                else if (c < mOffset && mOffset > 0) {
+                    mOffset = maxi (0, mOffset - (mHeight - 2)); mCursor = c;
+                }
+                goto nextpage;
+            }
+            if (!(mFlags & kNoPick) && mCursor >= 0 && mCursor < n &&
+                ('5' == key || (13 == key && !(mFlags & kMultiPick))) &&
+                mChoices.get (mCursor)->mCount >= 0)
+            {
+                key = mChoices.get (mCursor)->mLetter;
+            }
 
             if (' ' == key || 13 == key) {
                 /* page through */

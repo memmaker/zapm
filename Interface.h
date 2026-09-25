@@ -104,6 +104,8 @@ struct shInterface
         kWield,
         kZapRayGun,
         kQuit,
+        kExplore,       /* RVIP */
+        kEnter,
         
 /* debug commands: */
         
@@ -182,6 +184,13 @@ struct shInterface
 
     void crazyIvan (int on);
 
+    /* RVIP (Rvip.cpp) */
+    Command rvipCommand ();
+    Command rvipStep ();
+    Command rvipInventory ();
+    int rvipMenu ();
+    int keyFor (Command c);
+
     WINDOW *logWin() { return mLogWin; }
 
  private:
@@ -230,6 +239,7 @@ class shMenu
     int mHeight;     /* viewable rows */
     int mWidth;      /* viewable cols */
     int mOffset;     /* first choice */
+    int mCursor;     /* RVIP: highlighted choice (pick menus) */
     shVector <shMenuChoice *> mChoices;
     int mFlags;
     int mDone;

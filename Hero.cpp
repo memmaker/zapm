@@ -493,6 +493,8 @@ shHero::spotStuff ()
 int
 shHero::interrupt ()
 {
+    extern void rvipStop ();
+    rvipStop ();
     Level->computeVisibility ();
     I->drawScreen ();
     if (mBusy) {
@@ -1133,7 +1135,7 @@ shHero::takeTurn ()
     }
 
     mBusy = 0;
-    cmd = I->getCommand ();
+    cmd = I->rvipCommand ();
 
     dx = 0;
     dy = 0;

@@ -238,6 +238,9 @@ shHero::quickPickItem (shObjectVector *v, const char *action, int flags,
         
 
  tryagain:
+    /* RVIP: show the list with a cursor right away (letters still work) */
+    if (!wc_pending () && (v->count () || flags & shMenu::kAnythingAllowed))
+        wc_push (v->count () ? '?' : '*');
     I->p ("What do you want to %s? [%s%s%s]", action, 
           flags & shMenu::kNothingAllowed ? "- " : "",
           fastlist,
