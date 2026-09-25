@@ -990,6 +990,9 @@ saveGame ()
     UpdateList.reset ();
 
     snprintf (savename, sizeof(savename)-1, "%s/%s.sav", DataDir, Hero.mName);
+#ifdef __EMSCRIPTEN__
+    unlink (savename);  /* RVIP web: the existing file is our own autosave */
+#endif
     
 retry:
     fd = open (savename, O_CREAT | O_WRONLY | O_EXCL | O_BINARY, 
@@ -1028,7 +1031,8 @@ retry:
         }
     }
 
-    I->p("Saving...");
+    extern int RvipQuietSave;
+    if (!RvipQuietSave) I->p("Saving...");
     saveHeader (fd);
 
     saveInt (fd, Clock);

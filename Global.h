@@ -19,6 +19,9 @@ third number:  incremented with bug fix releases that don't affect gameplay
 #define ZAPM_VERSION "0.8.3"
 
 #define SH_DEBUG
+#ifdef __EMSCRIPTEN__
+#undef SH_DEBUG     /* RVIP web: no debug file in browser storage */
+#endif
 
 #ifdef DJGPP
 #include <stdarg.h>

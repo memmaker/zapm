@@ -1,0 +1,84 @@
+/* Browser frontend for the curses shim (RVIP step 7): web/zapm.js draws the
+ * panes (Module.zp); input waits with Asyncify. user/player.sav is an
+ * autosave while playing (ZAPM deletes it on load), removed at exit unless
+ * the player saved with S. No sound: ZAPM has no sound effects. */
+#include <emscripten.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include "Global.h"
+#include "Hero.h"
+
+extern int RvipSaved, RvipQuietSave, RvipAtPrompt;
+int saveGame ();
+
+EM_JS(void, js_init, (int p, int c, int r), { Module.zp.init(p, c, r); });
+EM_JS(void, js_put, (int p, int y, int x, int ch), { Module.zp.put(p, y, x, ch); });
+EM_JS(void, js_cursor, (int p, int y, int x), { Module.zp.cursor(p, y, x); });
+EM_JS(void, js_popup, (int r, int c), { Module.zp.popup(r, c); });
+EM_JS(void, js_flush, (int hy, int hx), { Module.zp.flush(hy, hx); });
+EM_JS(int, js_key, (void), { return Module.zp.key(); });
+EM_JS(int, js_want_save, (void), { return Module.zp.wantSave(); });
+EM_JS(void, js_end, (int saved), { Module.zp.end(saved); });
+
+void webEnd()
+{
+    char f[ZAPM_PATH_LENGTH];
+    snprintf(f, sizeof f, "%s/%s.sav", DataDir, Hero.mName);
+    if (!RvipSaved) unlink(f);      /* died or quit: the game is over */
+    js_end(RvipSaved);
+}
+
+extern "C" {
+void be_init(int p, int cols, int rows) { js_init(p, cols, rows); }
+void be_put(int p, int y, int x, chtype ch, int, int) { js_put(p, y, x, ch); }
+void be_cursor(int p, int y, int x) { js_cursor(p, y, x); }
+void be_popup(int rows, int cols) { js_popup(rows, cols); }
+void be_flush(void) { js_flush(Hero.mY, Hero.mX); }
+void be_sound(const char *) { }
+void be_end(void) { }
+
+/* Save and keep playing: write into save/tmp, then rename over the save. */
+static void autosave(void)
+{
+    char dir[ZAPM_PATH_LENGTH], tmp[ZAPM_PATH_LENGTH], sav[ZAPM_PATH_LENGTH];
+    if (!Hero.mName[0] || Hero.mHP <= 0) return;
+    strcpy(dir, DataDir);
+    snprintf(tmp, sizeof tmp, "%s/tmp/%s.sav", dir, Hero.mName);
+    snprintf(sav, sizeof sav, "%s/%s.sav", dir, Hero.mName);
+    snprintf(DataDir, ZAPM_PATH_LENGTH, "%s/tmp", dir);
+    unlink(tmp);
+    RvipQuietSave = 1;
+    int ok = 0 == saveGame();
+    RvipQuietSave = 0;
+    strcpy(DataDir, dir);
+    if (ok) rename(tmp, sav);
+}
+
+int be_getkey(int wait)
+{
+    static double last;
+    int k;
+    for (;;) {
+        if (RvipAtPrompt && js_want_save()) autosave();
+        if ((k = js_key()) >= 0) return k;
+        if (!wait) {                /* polling (explore): let the page paint */
+            if (emscripten_get_now() - last > 50) {
+                last = emscripten_get_now();
+                emscripten_sleep(0);
+            }
+            return -1;
+        }
+        emscripten_sleep(10);
+    }
+}
+}
+
+/* animations (explosions, rays) sleep through the page (-Dusleep=wc_usleep) */
+extern "C" int wc_usleep(useconds_t us)
+{
+    be_flush();
+    emscripten_sleep(us / 1000);
+    return 0;
+}

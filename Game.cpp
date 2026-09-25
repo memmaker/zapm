@@ -178,6 +178,10 @@ exitZapm (const int code)
     printf ("Press enter to exit...\n");
     getchar ();
 #endif
+#ifdef __EMSCRIPTEN__
+    extern void webEnd ();  /* port/be_web.cpp: drop the save unless saved, tell the page */
+    webEnd ();
+#endif
     exit (code);
 }
 

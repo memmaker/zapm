@@ -12,6 +12,8 @@
 #include "Monster.h"
 
 int RvipMsgs;                   /* bumped by shInterface::vp() */
+int RvipSaved, RvipQuietSave;   /* web autosave (port/be_web.cpp) */
+int RvipAtPrompt;               /* waiting for a command key */
 static int mode;                /* 0 off, 1 explore, 2 to '>', 3 to '<' */
 static int msgs0, reopen, opened;
 static shMapLevel *lev;
@@ -347,7 +349,9 @@ shInterface::rvipCommand ()
         if (!hostileInView ()) { Command c = rvipInventory (); if (kNoCommand != c) return c; }
     }
     while (1) {
+        RvipAtPrompt = 1;
         Command c = getCommand ();
+        RvipAtPrompt = 0;
         int onstairs = 0;
         shFeature *f = Level->getFeature (Hero.mX, Hero.mY);
         if (kEnter == c) {

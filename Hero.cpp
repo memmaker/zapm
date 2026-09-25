@@ -2326,6 +2326,8 @@ shHero::takeTurn ()
     case shInterface::kSaveGame:
         if (I->yn ("Really save?")) {
             if (0 == saveGame ()) {
+                extern int RvipSaved;
+                RvipSaved = 1;      /* web: keep the save file at exit */
                 GameOver = 1;
                 I->pause ();
                 return;

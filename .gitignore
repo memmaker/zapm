@@ -2,3 +2,4 @@ zapm-x11
 user/
 port/obj/
 *.o
+web/dist/

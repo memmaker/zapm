@@ -22,6 +22,14 @@ Case O (C++, curses + panel). Source: https://github.com/winny-/ZAPM-winny
 - Tested: char creation (cursor pick), explore + doors + stop on monsters,
   secret-door dead ends, `>` walk + descend, inventory quaff + reopen, Enter
   menu → command, save/restore.
-- Not done: web port (7) and so sound (6b, web only); switching lists
+- Web (step 7): `sh web/build.sh` → `web/dist`, `web/deploy.sh` →
+  https://ruzzoli.de/roguelikes/zapm/. `port/be_web.cpp` + `web/zapm.js` (from
+  XRogue's, text only, curses colours; layout map | Status/Inventory column,
+  Messages under the map). Save `user/player.sav` in IDBFS (`-u player`),
+  autosave at the command prompt via a temp DataDir + rename, one right after
+  load (ZAPM deletes the save it loads); `exitZapm()` calls `webEnd()` (drop
+  the save unless saved with S, tell the page). GitHub: memmaker/zapm.
+- No sound: upstream has no sound effects (user: sound only if upstream has sfx).
+- Not done: switching lists
   (inventory/equipment/floor) in item prompts; mouse. Shift/Ctrl+letter item
   shortcuts don't exist: ZAPM uses a-zA-Z as item letters (use numpad - and *).
