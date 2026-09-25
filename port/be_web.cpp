@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include "Global.h"
 #include "Hero.h"
+#include "Map.h"
+#include "Object.h"
 
 extern int RvipSaved, RvipQuietSave, RvipAtPrompt;
 int saveGame ();
@@ -35,7 +37,41 @@ void be_init(int p, int cols, int rows) { js_init(p, cols, rows); }
 void be_put(int p, int y, int x, chtype ch, int, int) { js_put(p, y, x, ch); }
 void be_cursor(int p, int y, int x) { js_cursor(p, y, x); }
 void be_popup(int rows, int cols) { js_popup(rows, cols); }
-void be_flush(void) { js_flush(Hero.mY, Hero.mX); }
+
+/* Visible window (RVIP 5b): creatures the hero sees and objects on seen
+ * squares, in the game's own colours */
+EM_JS(void, js_vis, (const char *s), { if (Module.zp.vis) Module.zp.vis(UTF8ToString(s)); });
+static const char *vcolor (int c)
+{
+    static const char *pal[] = { "#000", "#c33", "#3b3", "#cc3", "#35d", "#c3c", "#3cc", "#bbb", "#f55", "#5f5", "#ff5", "#58f", "#f5f", "#5ff", "#fff", "#900", "#070", "#a60", "#009" };
+    return c >= 0 && c < (int) (sizeof pal / sizeof *pal) ? pal[c] : "";
+}
+
+static void sendVisible ()
+{
+    static char buf[4096];
+    int n = 0;
+    if (!Level) { js_vis (""); return; }
+    for (int i = 0; i < Level->mCrList.count () && n < 3900; i++) {
+        shCreature *c = Level->mCrList.get (i);
+        if (!c || c == (&Hero) || !(&Hero)->canSee (c)) continue;
+        n += snprintf (buf + n, sizeof buf - n, "M%c%s\t%s\n", c->mGlyph.mChar, c->getDescription (), vcolor (c->mGlyph.mForeground));
+    }
+    for (int x = 0; x < MAPMAXCOLUMNS; x++)
+        for (int y = 0; y < MAPMAXROWS && n < 3900; y++) {
+            shObjectVector *v = Level->mObjects[x][y];
+            if (!v || !(&Hero)->canSee (x, y)) continue;
+            for (int i = 0; i < v->count () && n < 3900; i++) {
+                shObject *o = v->get (i);
+                shGlyph g = o->mIlk->mGlyph;
+                n += snprintf (buf + n, sizeof buf - n, "I%c%s\t%s\n", g.mChar, o->getDescription (), vcolor (g.mForeground));
+            }
+        }
+    buf[n] = 0;
+    js_vis (buf);
+}
+
+void be_flush(void) { sendVisible (); js_flush(Hero.mY, Hero.mX); }
 void be_sound(const char *) { }
 void be_end(void) { }
 
