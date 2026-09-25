@@ -20,7 +20,9 @@ EM_JS(void, js_put, (int p, int y, int x, int ch), { Module.zp.put(p, y, x, ch);
 EM_JS(void, js_cursor, (int p, int y, int x), { Module.zp.cursor(p, y, x); });
 EM_JS(void, js_popup, (int r, int c), { Module.zp.popup(r, c); });
 EM_JS(void, js_flush, (int hy, int hx), { Module.zp.flush(hy, hx); });
-EM_JS(int, js_key, (void), { return Module.zp.key(); });
+EM_JS(int, js_key, (int at_cmd), { return Module.zp.key(at_cmd); });
+EM_JS(void, js_prompt, (const char *s), { Module.zp.prompt(UTF8ToString(s)); });
+void be_prompt(const char *s) { js_prompt(s); }
 EM_JS(int, js_want_save, (void), { return Module.zp.wantSave(); });
 EM_JS(void, js_end, (int saved), { Module.zp.end(saved); });
 
@@ -98,7 +100,7 @@ int be_getkey(int wait)
     int k;
     for (;;) {
         if (RvipAtPrompt && js_want_save()) autosave();
-        if ((k = js_key()) >= 0) return k;
+        if ((k = js_key(RvipAtPrompt)) >= 0) return k;
         if (!wait) {                /* polling (explore): let the page paint */
             if (emscripten_get_now() - last > 50) {
                 last = emscripten_get_now();

@@ -281,6 +281,12 @@ int wnoutrefresh(WINDOW *w)
     } else if (w == wc_logwin) {
         for (y = 0; y < LIVE && y < w->maxy; y++)
             for (x = 0; x < w->maxx; x++) pset(pn[P_MSG], HIST + y, x, w->c[y * w->maxx + x]);
+        {   /* the cursor row of the log: the prompt line over the map */
+            char r[256];
+            for (x = 0; x < w->maxx && x < 255; x++) r[x] = w->c[w->cury * w->maxx + x] & A_CHARTEXT;
+            r[x] = 0;
+            be_prompt(r);
+        }
         untouch(w);
     }
     return OK;
