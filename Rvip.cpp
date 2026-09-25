@@ -1,4 +1,4 @@
-/* RVIP additions (~/Games/RVIP.md): auto-explore (X), '<'/'>' walk to the
+/* RVIP additions (~/Games/rvip-tools/RVIP.md): auto-explore (X), '<'/'>' walk to the
  * nearest known stairs, command menu on Enter, inventory list with a cursor
  * and item menus, cursor list for item prompts. */
 #include <string.h>
@@ -11,6 +11,7 @@
 #include "Hero.h"
 #include "Monster.h"
 
+int RvipAutoMore = 1;           /* --More-- after 5 log lines does not wait */
 int RvipMsgs;                   /* bumped by shInterface::vp() */
 int RvipSaved, RvipQuietSave;   /* web autosave (port/be_web.cpp) */
 int RvipAtPrompt;               /* waiting for a command key */

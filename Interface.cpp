@@ -876,9 +876,10 @@ shInterface::vp (const char *format, va_list ap)
     char strbuf[buflen];
     int res;
 
-    extern int RvipMsgs;
+    extern int RvipMsgs, RvipAutoMore;
     RvipMsgs++;
-    if (6 == ++mLogSCount || mPause) {
+    if (6 == ++mLogSCount && RvipAutoMore) mLogSCount = 1;   /* RVIP auto_more: the log just scrolls */
+    if (6 == mLogSCount || mPause) {
         doMorePrompt ();
         mLogSCount = 1;
     }
