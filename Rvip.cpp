@@ -187,7 +187,7 @@ wc_inv (WINDOW *w)
     for (i = 0; i < n && i < w->maxy; i++) {
         shObject *o = Hero.mInventory->get (i);
         wmove (w, i, 0);
-        wattrset (w, o->isWorn () || o->isWielded () ? ColorMap[kWhite] : A_NORMAL);
+        wattrset (w, o->isWorn () || o->isWielded () ? ColorMap[kWhite] : ColorMap[o->mIlk->mGlyph.mForeground]);
         char buf[128];
         snprintf (buf, sizeof buf, "%c - %s", o->mLetter, o->inv ());
         waddnstr (w, buf, w->maxx);

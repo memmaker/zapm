@@ -84,7 +84,7 @@
 		if (k > 32) {
 			c.font = T.font;
 			c.textAlign = 'center'; c.textBaseline = 'middle';
-			c.fillStyle = inv ? BG : (T.rowFg && T.rowFg[y]) || fg;
+			c.fillStyle = inv ? BG : fg;
 			c.fillText(String.fromCharCode(k), px + T.cw / 2, py + T.ch / 2 + 1);
 		}
 	}
@@ -207,18 +207,6 @@
 		document.querySelector('#t-vis .body').style.fontSize = L.font.vis + 'px';
 		saveLayout();
 	}
-	/* inventory lines coloured by item kind (Angband colours, rvip-wm.js) */
-	function invColors() {
-		var T = panes[P_INV];
-		if (!T) return;
-		T.rowFg = T.rowFg || [];
-		for (var y = 0; y < T.rows; y++) {
-			var s = '';
-			for (var x = 0; x < T.cols; x++) s += String.fromCharCode(T.ch_[y * T.cols + x] & 0xff);
-			var c = /^\s*[a-zA-Z][)\-] /.test(s) ? RvipWM.itemColor(s.replace(/^\s*[a-zA-Z][)\-] /, '')) : null;
-			if (c !== (T.rowFg[y] || null)) { T.rowFg[y] = c; for (x = 0; x < T.cols; x++) draw(P_INV, y, x); }
-		}
-	}
 	function applyDom() { if (wm) wm.apply(); }
 	function makeWM() {
 		var s = defaultLayout().split, A = areaSize();
@@ -282,7 +270,6 @@
 			fit(P_POP);
 		},
 		flush: function (hy, hx) {
-			invColors();
 			if (hy !== hero.y || hx !== hero.x) { hero.y = hy; hero.x = hx; scrollMap(false); }
 			/* the cursor is drawn over the cell; redraw that cell next time */
 			if (zp.lastCur && panes[zp.lastCur.p]) draw(zp.lastCur.p, zp.lastCur.y, zp.lastCur.x);

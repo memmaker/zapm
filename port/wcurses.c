@@ -92,6 +92,18 @@ static void hist(WINDOW *w, int row)
     r[n] = 0;
     if ((m = strstr(r, "  --More--"))) *m = 0;
     if (!*r) return;
+    /* a repeat of the newest line: "line (xN)" in its row */
+    static char prev[256];
+    static int reps;
+    if (!strcmp(r, prev)) {
+        char sfx[16];
+        snprintf(sfx, sizeof sfx, " (x%d)", ++reps);
+        for (n = strlen(r), x = 0; sfx[x] && n + x < p->maxx; x++) p->c[(HIST - 1) * p->maxx + n + x] = (unsigned char)sfx[x];
+        touchwin(p);
+        return;
+    }
+    reps = 1;
+    strcpy(prev, r);
     memmove(p->c, p->c + p->maxx, sizeof(chtype) * p->maxx * (HIST - 1));
     touchwin(p);
     for (x = 0; x < p->maxx; x++)
