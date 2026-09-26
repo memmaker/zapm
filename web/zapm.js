@@ -384,6 +384,10 @@
 			FS.mount(Module.IDBFS, {}, DIR);
 			FS.chdir('/zapm');                   /* DATADIR "user" is relative */
 			Module.ENV.USER = 'player';
+			var who = '';                        /* the game plays as "player" (save file name), so ask once for the run report */
+			try { who = localStorage.getItem('zapm-name') || ''; } catch (err) { /* no storage */ }
+			if (!who) { who = (prompt('What is your name, adventurer?', '') || '').replace(/[,\n]/g, '').trim().slice(0, 30); try { if (who) localStorage.setItem('zapm-name', who); } catch (err) { /* no storage */ } }
+			if (who) Module.ENV.ZAPM_NAME = who;
 			Module.addRunDependency('idbfs');
 			FS.syncfs(true, function (err) {
 				try { FS.mkdir(DIR + '/tmp'); } catch (e) { }   /* autosave writes here first */

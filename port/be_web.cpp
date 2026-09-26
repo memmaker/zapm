@@ -120,3 +120,27 @@ extern "C" int wc_usleep(useconds_t us)
     emscripten_sleep(us / 1000);
     return 0;
 }
+
+/* Run report (roguelikes-index/server/CONTRACT.md): fire-and-forget GET,
+   never throws, offline just fails silently. Negative ints are omitted. */
+EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const char *killer, int depth, int score, int turns, int lvl), {
+    try {
+        var p = [['g', UTF8ToString(g)], ['ev', UTF8ToString(ev)], ['name', name ? UTF8ToString(name) : ''],
+                 ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
+        var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
+                 .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
+        fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
+    } catch (e) {}
+});
+/* Called from shHero::die after logGame (score final). Clock is in ms of game
+   time; one normal-speed turn is 1000. */
+void be_run_end (int how, const char *k, int score)
+{
+    const char *ev = "death";
+    if (kWonGame == how) ev = "win", k = NULL;
+    else if (kQuitGame == how) ev = "quit", k = NULL;
+    else if (k && !strncmp (k, "a ", 2)) k += 2;
+    else if (k && !strncmp (k, "an ", 3)) k += 3;
+    else if (k && !strncmp (k, "the ", 4)) k += 4;
+    js_beacon ("zapm", ev, getenv ("ZAPM_NAME"), k, Level ? Level->mDLevel : -1, score, Clock / 1000, Hero.mCLevel);
+}

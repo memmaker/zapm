@@ -2379,6 +2379,9 @@ shHero::takeTurn ()
 }
 
 
+const char *RvipKillerIlk;
+void be_run_end (int how, const char *killer, int score);
+
 int
 shHero::die (shCauseOfDeath how, shCreature *killer)
 {
@@ -2386,6 +2389,7 @@ shHero::die (shCauseOfDeath how, shCreature *killer)
     Level->setLit (killer->mX, killer->mY, 1, 1, 1, 1);
     if (this == killer)
         return die (kKilled, her ("own weapon"));
+    RvipKillerIlk = killer->mIlk->mName;    /* run beacon: ilk name even if unseen */
     return die (how, AN (killer));
 }
 
@@ -2477,6 +2481,9 @@ nopause:
     }
 
     logGame (message);
+#ifdef __EMSCRIPTEN__
+    be_run_end (how, RvipKillerIlk ? RvipKillerIlk : killer, mScore);
+#endif
 
     I->p ("Goodbye...");
 
