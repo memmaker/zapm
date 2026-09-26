@@ -33,3 +33,9 @@ Case O (C++, curses + panel). Source: https://github.com/winny-/ZAPM-winny
 - Not done: switching lists
   (inventory/equipment/floor) in item prompts; mouse. Shift/Ctrl+letter item
   shortcuts don't exist: ZAPM uses a-zA-Z as item letters (use numpad - and *).
+- Prompt line (RVIP step 5 / W4, 2026-09-26): the live message row is shown in a
+  box over the map by `RvipWM.prompt` (rvip-wm.js). A key hides it only while
+  the game waits for a command, so a question stays up until answered.
+  Here: `be_prompt(r)` from `wnoutrefresh()` of the log window in
+  `port/wcurses.c` (the cursor row), `js_key(RvipAtPrompt)` in
+  `port/be_web.cpp`; `be_x11.c` has an empty stub.
