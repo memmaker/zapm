@@ -129,7 +129,7 @@ EM_JS(void, js_beacon, (const char *g, const char *ev, const char *name, const c
                  ['killer', killer ? UTF8ToString(killer) : ''], ['depth', depth], ['score', score], ['turns', turns], ['lvl', lvl]];
         var q = p.filter(function (a) { return a[1] !== '' && !(a[1] < 0); })
                  .map(function (a) { return a[0] + '=' + encodeURIComponent(a[1]); }).join('&');
-        fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
+        if (window.RvipWM && RvipWM.report) RvipWM.report(q); else fetch('/roguelikes/beacon?' + q, { keepalive: true, mode: 'no-cors' }).catch(function () {});
     } catch (e) {}
 });
 /* Called from shHero::die after logGame (score final). Clock is in ms of game
