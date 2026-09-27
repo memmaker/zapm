@@ -14,6 +14,6 @@ em++ -O2 -std=c++98 -w -I. -Iport -DZAPM_SHIM -Dusleep=wc_usleep \
 	-sEXPORTED_RUNTIME_METHODS=FS,IDBFS,ENV,addRunDependency,removeRunDependency \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
 rm "$OUT/wcurses.o"
-cp web/index.html "$HOME/Games/rvip-tools/web/rvip-wm.js" web/zapm.js "$OUT/"
+cp web/index.html web/zapm.js "$OUT/"
 python3 web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"
