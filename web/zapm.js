@@ -92,6 +92,7 @@
 	function drawCursor() {
 		var T = panes[cur.p];
 		if (!T || cur.y >= T.rows || cur.x >= T.cols) return;
+		if (cur.p === P_MAP && cur.y === hero.y && cur.x === hero.x) return;   /* no cursor on the hero */
 		var c = T.ctx, px = T.pad + cur.x * T.cw, py = T.pad + cur.y * T.ch;
 		c.fillStyle = c.strokeStyle = FG;
 		c.fillRect(px, py + T.ch - 2, T.cw, 2);
