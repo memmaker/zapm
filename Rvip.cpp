@@ -141,7 +141,7 @@ shInterface::rvipStep ()
     if (RvipMsgs != msgs0 || hostileInView () || wc_kbhit ()) return kNoCommand;
     visited[Hero.mX][Hero.mY] = 1;
     if (target (Hero.mX, Hero.mY) && mode > 1)
-        return 2 == mode ? kMoveDown : kMoveUp;
+        return kNoCommand;  /* arrived: the player presses < / > again */
     memset (px, -1, sizeof px);
     px[Hero.mX][Hero.mY] = Hero.mX; py[Hero.mX][Hero.mY] = Hero.mY;
     qx[t] = Hero.mX; qy[t++] = Hero.mY;
