@@ -266,6 +266,7 @@
 			/* the cursor is drawn over the cell; redraw that cell next time */
 			if (zp.lastCur && panes[zp.lastCur.p]) draw(zp.lastCur.p, zp.lastCur.y, zp.lastCur.x);
 			drawCursor();
+			var mb = document.querySelector('#t-msg .body'); if (mb) mb.scrollTop = mb.scrollHeight;   /* newest message in view */
 			zp.lastCur = cur.p >= 0 ? { p: cur.p, y: cur.y, x: cur.x } : null;
 		},
 		vis: function (s) { RvipWM.visible(document.querySelector('#t-vis .body'), s); },

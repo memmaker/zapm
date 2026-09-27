@@ -81,7 +81,28 @@ static void pset(WINDOW *p, int y, int x, chtype ch)
     touch(p, y, x);
 }
 
-/* Messages pane: HIST history rows, then the LIVE log rows */
+/* Messages pane, filled from the top: the nhist history rows in use, then
+ * the live log rows, then blank rows; a full history scrolls. */
+static chtype hb[HIST][256];
+static int nhist;
+
+static void msg_compose(void)
+{
+    WINDOW *p = pn[P_MSG], *w = wc_logwin;
+    int y, x, row = 0, live = 0;
+    if (!w) return;
+    for (y = 0; y < LIVE && y < w->maxy; y++)
+        for (x = 0; x < w->maxx; x++)
+            if ((w->c[y * w->maxx + x] & A_CHARTEXT) != ' ') live = y + 1;
+    if (w->cury < LIVE && w->cury + 1 > live && w->curx > 0) live = w->cury + 1;
+    for (y = 0; y < nhist; y++, row++)
+        for (x = 0; x < p->maxx; x++) pset(p, row, x, hb[y][x]);
+    for (y = 0; y < live; y++, row++)
+        for (x = 0; x < p->maxx; x++) pset(p, row, x, x < w->maxx ? w->c[y * w->maxx + x] : ' ');
+    for (; row < p->maxy; row++)
+        for (x = 0; x < p->maxx; x++) pset(p, row, x, ' ');
+}
+
 static void hist(WINDOW *w, int row)
 {
     WINDOW *p = pn[P_MSG];
@@ -95,19 +116,18 @@ static void hist(WINDOW *w, int row)
     /* a repeat of the newest line: "line (xN)" in its row */
     static char prev[256];
     static int reps;
-    if (!strcmp(r, prev)) {
+    if (nhist && !strcmp(r, prev)) {
         char sfx[16];
         snprintf(sfx, sizeof sfx, " (x%d)", ++reps);
-        for (n = strlen(r), x = 0; sfx[x] && n + x < p->maxx; x++) p->c[(HIST - 1) * p->maxx + n + x] = (unsigned char)sfx[x];
-        touchwin(p);
+        for (n = strlen(r), x = 0; sfx[x] && n + x < p->maxx; x++) hb[nhist - 1][n + x] = (unsigned char)sfx[x];
         return;
     }
     reps = 1;
     strcpy(prev, r);
-    memmove(p->c, p->c + p->maxx, sizeof(chtype) * p->maxx * (HIST - 1));
-    touchwin(p);
+    if (nhist == HIST) memmove(hb, hb + 1, sizeof hb[0] * (HIST - 1));
+    else nhist++;
     for (x = 0; x < p->maxx; x++)
-        p->c[(HIST - 1) * p->maxx + x] = x < w->maxx && x < (int)strlen(r) ? w->c[row * w->maxx + x] : ' ';
+        hb[nhist - 1][x] = x < w->maxx && x < (int)strlen(r) ? w->c[row * w->maxx + x] : ' ';
 }
 
 static void scroll1(WINDOW *w)
@@ -279,8 +299,7 @@ int wnoutrefresh(WINDOW *w)
                 pset(pn[P_STATUS], y, x, w->c[y * w->maxx + x]);
         untouch(w);
     } else if (w == wc_logwin) {
-        for (y = 0; y < LIVE && y < w->maxy; y++)
-            for (x = 0; x < w->maxx; x++) pset(pn[P_MSG], HIST + y, x, w->c[y * w->maxx + x]);
+        msg_compose();
         {   /* the cursor row of the log: the prompt line over the map */
             char r[256];
             for (x = 0; x < w->maxx && x < 255; x++) r[x] = w->c[w->cury * w->maxx + x] & A_CHARTEXT;
@@ -296,7 +315,7 @@ int wnoutrefresh(WINDOW *w)
 static void cursor(WINDOW *w)
 {
     if (w == wc_mapwin) be_cursor(P_MAP, w->cury, w->curx);
-    else if (w == wc_logwin) be_cursor(P_MSG, HIST + w->cury, w->curx);
+    else if (w == wc_logwin) be_cursor(P_MSG, nhist + w->cury, w->curx);
     else if (w && w == pop_win && pop_h) be_cursor(P_POP, w->cury - w->begy, w->curx - w->begx);
     else be_cursor(-1, 0, 0);
 }
