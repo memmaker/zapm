@@ -43,9 +43,12 @@
 
 	/* ---------- panes ---------- */
 
-	function measure(px) {
+	/* fonts from the index page's fonts/: L.face for every pane but the map,
+	 * L.mapFace for the map (chooser on its title bar) */
+	function face(p) { var n = L && (p === P_MAP ? L.mapFace : L.face); return n ? '"' + n + '", ' + FONT : FONT; }
+	function measure(px, p) {
 		var c = document.createElement('canvas').getContext('2d');
-		c.font = px + 'px ' + FONT;
+		c.font = px + 'px ' + face(p);
 		return Math.ceil(c.measureText('M').width);
 	}
 
@@ -53,8 +56,8 @@
 	function shape(p) {
 		var T = panes[p];
 		var f = p === P_MAP ? L.tile : p === P_POP ? L.font.pop : L.font[WIN[p]];
-		T.cw = measure(f); T.ch = Math.round(f * 1.3); T.pad = p === P_POP ? T.cw : 0;
-		T.font = (p === P_MAP ? 'bold ' : '') + f + 'px ' + FONT;
+		T.cw = measure(f, p); T.ch = Math.round(f * 1.3); T.pad = p === P_POP ? T.cw : 0;
+		T.font = (p === P_MAP && !L.mapFace ? 'bold ' : '') + f + 'px ' + face(p);
 		var w = T.cols * T.cw + 2 * T.pad, h = T.rows * T.ch + 2 * T.pad;
 		T.cv.width = Math.round(w * dpr); T.cv.height = Math.round(h * dpr);
 		T.w = w; T.h = h;
@@ -143,9 +146,13 @@
 					if (s.font && s.font[k] >= FONT_MIN && s.font[k] <= FONT_MAX) d.font[k] = s.font[k];
 				});
 				if (s.wm) d.wm = s.wm;
+				if (typeof s.face === 'string') d.face = s.face;
+				if (typeof s.mapFace === 'string') d.mapFace = s.mapFace;
 			}
 		} catch (err) { /* nothing saved yet */ }
 		L = d;
+		$('sel-font').value = L.face || '';   /* if fonts.json came first */
+		loadFace(L.face); loadFace(L.mapFace);
 	}
 
 	var saveTimer = 0;
@@ -209,13 +216,14 @@
 			wins: [{ id: 'map', title: 'Map' }, { id: 'msg', title: 'Messages' }, { id: 'stat', title: 'Status' }, { id: 'inv', title: 'Inventory' }, { id: 'vis', title: 'Visible' }],
 			multi: { d: 'h', r: s.side, a: { d: 'v', r: s.bottom, a: 'map', b: 'msg' }, b: { d: 'v', r: s.stat, a: 'stat', b: { d: 'v', r: 0.6, a: 'inv', b: 'vis' } } },
 			single: { d: 'v', r: line / A.h, a: 'msg', b: { d: 'v', r: 1 - stat / (A.h - line), a: 'map', b: 'stat' } },
-			state: L.wm, noFont: 'map',
+			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) { rects = r; WIN.forEach(function (id, p) { fit(p); }); fit(P_POP); },
-			font: function (id, d) { if (id === 'vis') zoomList(d); else zoomText(id, d); },
+			font: function (id, d) { if (id === 'map') zoomMap(d); else if (id === 'vis') zoomList(d); else zoomText(id, d); },
 			onReset: resetLayout
 		});
 		wm.apply();
+		renderMapSel();
 	}
 
 	function zoomMap(d) {
@@ -236,8 +244,8 @@
 	}
 
 	function resetLayout() {
-		var a = L.audio;
-		L = defaultLayout(); L.audio = a; L.wm = wm.state();
+		var a = L.audio, fc = L.face, mf = L.mapFace;
+		L = defaultLayout(); L.audio = a; L.face = fc; L.mapFace = mf; L.wm = wm.state();
 		for (var p = 0; p < panes.length; p++) if (panes[p]) shape(p);
 		applyDom(); saveLayout();
 	}
@@ -376,6 +384,28 @@
 		if (!h.hidden) $('help-body').focus();
 	}
 
+	/* ---------- fonts ---------- */
+	/* map font chooser: on the Map title bar (shown on hover) */
+	var mapSel = document.createElement('select');
+	mapSel.title = 'Map font';
+	mapSel.innerHTML = '<option value="">Default font</option>';
+	mapSel.addEventListener('pointerdown', function (e) { e.stopPropagation(); });   /* not a window drag */
+	function renderMapSel() {
+		var bs = document.querySelector('#t-map .wm-btns');
+		if (bs && mapSel.parentNode !== bs) bs.insertBefore(mapSel, bs.firstChild);
+		mapSel.value = (L && L.mapFace) || '';
+	}
+	function loadFace(n, now) {
+		var redraw = function () {
+			for (var p = 0; p < panes.length; p++) if (panes[p]) shape(p);
+			document.querySelector('#t-vis .body').style.fontFamily = L.face ? '"' + L.face + '", monospace' : '';
+			applyDom();
+		};
+		if (!n) { if (now) redraw(); return; }
+		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
+		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { status('Could not load the font ' + n + '.', true); });
+	}
+
 	/* ---------- startup ---------- */
 	window.Module = {
 		zp: zp,
@@ -438,8 +468,16 @@
 		$('btn-new').onclick = newGame;
 		$('btn-help').onclick = toggleHelp;
 		$('help-close').onclick = toggleHelp;
-		$('btn-zoom-in').onclick = function () { zoomMap(1); };
-		$('btn-zoom-out').onclick = function () { zoomMap(-1); };
+		RvipWM.dropdown($('btn-file'), $('menu-file'));
+		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
+			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+				list.forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n.replace(/^Web(Plus|437)_/, '').replace(/_/g, ' '); a[0].appendChild(o); });
+				a[0].value = (L && L[a[1]]) || '';
+			});
+		}).catch(function () { });
+		[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
+			a[0].onchange = function () { if (!L) return; L[a[1]] = this.value; saveLayout(); loadFace(this.value, true); this.blur(); };
+		});
 		$('btn-restart').onclick = function () { location.reload(); };
 		document.querySelectorAll('button').forEach(function (b) {
 			b.addEventListener('mousedown', function (e) { e.preventDefault(); });

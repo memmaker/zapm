@@ -15,5 +15,9 @@ em++ -O2 -std=c++98 -w -I. -Iport -DZAPM_SHIM -Dusleep=wc_usleep \
 	-sFORCE_FILESYSTEM -lidbfs.js -sENVIRONMENT=web
 rm "$OUT/wcurses.o"
 cp web/index.html web/zapm.js "$OUT/"
+# text fonts: the index page's fonts/ (served at ../fonts/ next to the games)
+FONTS=${FONTS:-$HOME/Games/roguelikes-index/fonts}
+if [ -d "$FONTS" ]; then (cd "$FONTS" && ls *.woff | sed 's/\.woff$//'); fi \
+	| python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))' > "$OUT/fonts.json"
 python3 web/make-help.py > "$OUT/help.html"
 ls -la "$OUT"
