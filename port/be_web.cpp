@@ -96,17 +96,13 @@ static void autosave(void)
 
 int be_getkey(int wait)
 {
-    static double last;
     int k;
     for (;;) {
         if (RvipAtPrompt && js_want_save()) autosave();
         if ((k = js_key(RvipAtPrompt)) >= 0) return k;
-        if (!wait) {                /* polling (explore): let the page paint */
-            if (emscripten_get_now() - last > 50) {
-                last = emscripten_get_now();
-                emscripten_sleep(0);
-            }
-            return -1;
+        if (!wait) {                /* polling (explore, each step): paint it, 40 ms */
+            emscripten_sleep(40);
+            return (k = js_key(RvipAtPrompt)) >= 0 ? k : -1;
         }
         emscripten_sleep(10);
     }
