@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 OUT=web/dist
 rm -rf "$OUT" && mkdir -p "$OUT"
 emcc -O2 -Iport -c port/wcurses.c -o "$OUT/wcurses.o"
-em++ -O2 -std=c++98 -w -I. -Iport -DZAPM_SHIM -Dusleep=wc_usleep \
+em++ -O2 -std=c++98 -I. -Iport -DZAPM_SHIM -Dusleep=wc_usleep \
 	*.cpp port/be_web.cpp "$OUT/wcurses.o" -o "$OUT/zapm-core.js" \
 	-sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 -sSTACK_SIZE=1048576 \
 	-sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=32MB \
