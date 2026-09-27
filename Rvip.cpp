@@ -179,6 +179,13 @@ shInterface::rvipStep ()
     return (Command) (kMoveN + d);
 }
 
+/* an item's colour, the same in the Inventory pane and the i pop-up */
+static int
+invAttr (shObject *o)
+{
+    return o->isWorn () || o->isWielded () ? ColorMap[kWhite] : ColorMap[o->mIlk->mGlyph.mForeground];
+}
+
 void
 wc_inv (WINDOW *w)
 {
@@ -187,7 +194,7 @@ wc_inv (WINDOW *w)
     for (i = 0; i < n && i < w->maxy; i++) {
         shObject *o = Hero.mInventory->get (i);
         wmove (w, i, 0);
-        wattrset (w, o->isWorn () || o->isWielded () ? ColorMap[kWhite] : ColorMap[o->mIlk->mGlyph.mForeground]);
+        wattrset (w, invAttr (o));
         char buf[128];
         snprintf (buf, sizeof buf, "%c - %s", o->mLetter, o->inv ());
         waddnstr (w, buf, w->maxx);
@@ -254,7 +261,7 @@ shInterface::rvipInventory ()
                 mvwaddstr (win, 0, 1, title);
                 for (i = top; i < n && i < top + rows; i++) {
                     snprintf (buf, sizeof buf, " %c  %-*s", keys[i], w - 4, text[i]);
-                    wattrset (win, i == cur ? A_REVERSE : A_NORMAL);
+                    wattrset (win, i == cur ? A_REVERSE : invAttr (Hero.mInventory->get (i)));
                     mvwaddnstr (win, 1 + i - top, 1, buf, w);
                 }
                 wattrset (win, A_NORMAL);
