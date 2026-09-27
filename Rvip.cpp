@@ -311,7 +311,7 @@ shInterface::rvipMenu ()
     int keys[KEY_MAX / 2], n = 0;
     static const struct { int cmd; const char *t; } mv[] = {
         { kExplore, "Explore automatically" }, { kMoveDown, "Go down (walks to known stairs)" },
-        { kMoveUp, "Go up (walks to known stairs)" }, { kGlide, "Glide: move until something is found" },
+        { kMoveUp, "Go up (walks to known stairs)" },
         { kRest, "Rest for one second" }, { kSearch, "Search for traps and secret doors" }, { 0, 0 } };
     text[n] = "Movement"; keys[n++] = -1;
     for (int i = 0; mv[i].t; i++) { text[n] = mv[i].t; keys[n++] = keyFor ((Command) mv[i].cmd); }
