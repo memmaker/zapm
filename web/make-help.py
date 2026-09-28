@@ -35,7 +35,7 @@ SAVING = '''<ul>
 WEB = '''<ul>
 <li><strong>Windows:</strong> the map top left, Messages (with history) under it, Status and Inventory on the right. Help, lists and menus pop up over the map. Text only, in the game's own colours.</li>
 <li><strong>Resize windows</strong> by dragging the gaps between them; a window's contents shrink to fit when it is too small. <em>Reset windows</em> puts everything back.</li>
-<li><strong>Zoom:</strong> <em>Zoom −</em> / <em>Zoom +</em> change the size of the map; when it is bigger than its window it scrolls to follow you. Hover over a text window's title to show its <em>A−</em> / <em>A+</em> buttons.</li>
+<li><strong>Zoom:</strong> <em>A−</em> / <em>A+</em> on the Map title bar (shown on hover) change the size of the map; when it is bigger than its window it scrolls to follow you. Hover over a text window's title to show its <em>A−</em> / <em>A+</em> buttons.</li>
 <li><strong>No sound:</strong> ZAPM never had sound effects.</li>
 <li><strong>Keys:</strong> the arrow keys, the digits or the numeric keypad move you (vi keys can be switched on with <kbd>O</kbd>).</li>
 <li>Browsers keep a few shortcuts for themselves (<kbd>Ctrl+W</kbd>, <kbd>Ctrl+T</kbd>, <kbd>Ctrl+N</kbd>, and <kbd>Cmd</kbd> shortcuts on a Mac), so those never reach the game. Use <kbd>N</kbd> to name items instead of <kbd>Ctrl+N</kbd>.</li>
