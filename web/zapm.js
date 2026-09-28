@@ -15,7 +15,6 @@
 	var FG = '#dcdcdc', BG = '#000';
 	var GUT = 6, TITLE_H = 20, BORDER = 2;
 	var TILE_STEPS = [10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40, 48];   /* map font px */
-	var FONT_MIN = 8, FONT_MAX = 28;
 	/* ZAPM moves with the digits */
 	var KEY = { ArrowDown: 50, ArrowUp: 56, ArrowLeft: 52, ArrowRight: 54,
 		Home: 55, PageUp: 57, End: 49, PageDown: 51 };
@@ -27,19 +26,13 @@
 
 	var panes = [];            /* {cv, ctx, cols, rows, cw, ch, pad, buf} */
 	var events = [];
-	var running = false, saveReq = false;
+	var app, saveReq = false;
 	var cur = { p: -1, y: 0, x: 0 };
 	var dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
 	var L = null, rects = {};
 
 	function $(id) { return document.getElementById(id); }
 	function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-	function status(msg, isError) {
-		var s = $('status');
-		s.textContent = msg;
-		s.className = isError ? 'error' : '';
-		s.hidden = !msg;
-	}
 
 	/* ---------- panes ---------- */
 
@@ -55,7 +48,7 @@
 	/* Cell size from the zoom settings; rebuilds the canvas and redraws */
 	function shape(p) {
 		var T = panes[p];
-		var f = p === P_MAP ? L.tile : p === P_POP ? L.font.pop : L.font[WIN[p]];
+		var f = p === P_MAP ? L.tile : RvipWM.fontSize(p === P_POP ? 'msg' : WIN[p]);   /* A−/A+ per window (WM state); pop-ups use the Messages size */
 		T.cw = measure(f, p); T.ch = Math.round(f * 1.3); T.pad = p === P_POP ? T.cw : 0;
 		T.font = (p === P_MAP && !L.mapFace ? 'bold ' : '') + f + 'px ' + face(p);
 		var w = T.cols * T.cw + 2 * T.pad, h = T.rows * T.ch + 2 * T.pad;
@@ -121,13 +114,13 @@
 	function defaultLayout() {
 		var A = areaSize(), W = A.w, H = A.h;
 		if (W < 400 || H < 300) { W = 1280; H = 720; }
-		var font = W >= 1600 ? 14 : 13, cw = measure(font), ch = Math.round(font * 1.3);
+		var font = 13, cw = measure(font), ch = Math.round(font * 1.3);
 		var sideW = 50 * cw + BORDER + GUT, tile = TILE_STEPS[0];
 		TILE_STEPS.forEach(function (t) {
 			if (64 * measure(t) + BORDER <= W - sideW && 20 * Math.round(t * 1.3) + BORDER <= H - 13 * ch - TITLE_H) tile = t;
 		});
 		var mapH = 20 * Math.round(tile * 1.3) + BORDER, statH = 20 * ch + TITLE_H + BORDER;
-		return { v: 1, tile: tile, auto: true, font: { msg: font, stat: font, inv: font, pop: font },
+		return { v: 1, tile: tile, auto: true,
 			split: { side: clamp((64 * measure(tile) + BORDER + GUT / 2) / W, 0.3, 0.9), bottom: clamp((mapH + GUT / 2) / H, 0.2, 0.9),
 				stat: clamp((statH + GUT / 2) / H, 0.2, 0.8) } };
 	}
@@ -142,10 +135,8 @@
 					SPLITS.forEach(function (k) { if (s.split[k] > 0 && s.split[k] < 1) d.split[k] = s.split[k]; });
 					if (TILE_STEPS.indexOf(s.tile) >= 0) d.tile = s.tile;
 				}
-				Object.keys(d.font).forEach(function (k) {
-					if (s.font && s.font[k] >= FONT_MIN && s.font[k] <= FONT_MAX) d.font[k] = s.font[k];
-				});
 				if (s.wm) d.wm = s.wm;
+				if (s.font && d.wm && !d.wm.fs) d.wm.fs = { msg: s.font.msg, stat: s.font.stat, inv: s.font.inv, vis: s.font.vis };   /* old layout: sizes were ours */
 				if (typeof s.face === 'string') d.face = s.face;
 				if (typeof s.mapFace === 'string') d.mapFace = s.mapFace;
 			}
@@ -159,7 +150,7 @@
 	function saveLayout() {
 		clearTimeout(saveTimer);
 		saveTimer = setTimeout(function () {
-			try { Module.FS.writeFile(LAYOUT_FILE, JSON.stringify(L)); syncFiles(); }
+			try { Module.FS.writeFile(LAYOUT_FILE, JSON.stringify(L)); app.sync(); }
 			catch (err) { console.warn('layout not saved', err); }
 		}, 400);
 	}
@@ -202,15 +193,10 @@
 	}
 
 	var wm = null;
-	function zoomList(d) {
-		L.font.vis = clamp((L.font.vis || 13) + d, FONT_MIN, FONT_MAX);
-		document.querySelector('#t-vis .body').style.fontSize = L.font.vis + 'px';
-		saveLayout();
-	}
 	function applyDom() { if (wm) wm.apply(); }
 	function makeWM() {
 		var s = defaultLayout().split, A = areaSize();
-		var line = Math.round(L.font.msg * 1.3) + 4, stat = Math.round(L.font.stat * 1.3) + 4;
+		var line = Math.round(13 * 1.3) + 4, stat = Math.round(13 * 1.3) + 4;
 		wm = RvipWM({
 			area: $('game'), menu: $('btn-layout'),
 			wins: [{ id: 'map', title: 'Map' }, { id: 'msg', title: 'Messages' }, { id: 'stat', title: 'Status' }, { id: 'inv', title: 'Inventory' }, { id: 'vis', title: 'Visible' }],
@@ -219,7 +205,7 @@
 			state: L.wm,
 			save: function (st) { L.wm = st; saveLayout(); },
 			layout: function (r) { rects = r; WIN.forEach(function (id, p) { fit(p); }); fit(P_POP); },
-			font: function (id, d) { if (id === 'map') zoomMap(d); else if (id === 'vis') zoomList(d); else zoomText(id, d); },
+			zoom: { map: function (px, d) { zoomMap(d); }, msg: zoomText, stat: zoomText, inv: zoomText },   /* text panes: redraw at the WM size */
 			onReset: resetLayout
 		});
 		wm.apply();
@@ -230,17 +216,13 @@
 		var i = clamp(TILE_STEPS.indexOf(L.tile) + d, 0, TILE_STEPS.length - 1);
 		L.tile = TILE_STEPS[i]; L.auto = false;
 		shape(P_MAP); applyDom(); saveLayout();
-		status('Map font: ' + L.tile + ' px');
-		setTimeout(function () { status(''); }, 1200);
+		app.status('Map font: ' + L.tile + ' px');
+		setTimeout(function () { app.status(''); }, 1200);
 	}
 
-	function zoomText(id, d) {
-		var ids = [id];
-		ids.forEach(function (k) { L.font[k] = clamp(L.font[k] + d, FONT_MIN, FONT_MAX); });
-		L.font.pop = L.font[ids[0]];            /* pop-ups follow the last zoomed window */
-		WIN.forEach(function (w, p) { if (p && ids.indexOf(w) >= 0) shape(p); });
-		if (panes[P_POP]) shape(P_POP);
-		applyDom(); saveLayout();
+	function zoomText() {
+		for (var p = 1; p < panes.length; p++) if (panes[p]) shape(p);
+		applyDom();
 	}
 
 	function resetLayout() {
@@ -255,7 +237,7 @@
 		init: function (p, cols, rows) {
 			if (!L) loadLayout();
 			makePane(p, cols, rows);
-			if (p === P_INV) { $('game').hidden = false; if (L.font.vis) document.querySelector('#t-vis .body').style.fontSize = L.font.vis + 'px'; makeWM(); }
+			if (p === P_INV) { $('game').hidden = false; makeWM(); zoomText(); }   /* reshape at the stored sizes */
 		},
 		put: function (p, y, x, ch) {
 			var T = panes[p];
@@ -283,14 +265,14 @@
 		prompt: function (s) { RvipWM.prompt.text(s); },
 		requestSave: function () { saveReq = true; },   /* also for testing */
 		wantSave: function () {
-			if (!saveReq || !running) return 0;
+			if (!saveReq || !app.running) return 0;
 			saveReq = false;
-			setTimeout(syncFiles, 0);           /* after the game wrote the file */
+			setTimeout(app.sync, 0);           /* after the game wrote the file */
 			return 1;
 		},
 		end: function (saved) {
-			running = false;
-			syncFiles(function () {
+			app.running = false;
+			app.sync(function () {
 				$('overlay-msg').textContent = saved ? 'Your game has been saved. Play again to continue it.'
 					: 'The game is over.';
 				$('overlay').hidden = false;
@@ -300,11 +282,7 @@
 
 	/* ---------- input ---------- */
 	function onKey(e) {
-		if (!$('help').hidden) {
-			if (e.key === 'Escape') { $('help').hidden = true; e.preventDefault(); }
-			return;
-		}
-		if (!running || e.isComposing || e.metaKey) return;
+		if (!app.running || e.isComposing || e.metaKey) return;
 		var k = e.key, code = e.code || '', m = /^Numpad(\d)$/.exec(code), c;
 		if (m) c = 48 + +m[1];
 		else if (code === 'NumpadEnter' || k === 'Enter') c = 13;
@@ -327,62 +305,9 @@
 	}
 
 	/* ---------- saves: IndexedDB (IDBFS) ---------- */
-	var syncing = false, syncAgain = false, pendingCbs = [];
-	function syncFiles(cb) {
-		if (!Module.FS) { if (cb) cb(); return; }
-		if (typeof cb === 'function') pendingCbs.push(cb);
-		if (syncing) { syncAgain = true; return; }
-		syncing = true;
-		var cbs = pendingCbs; pendingCbs = [];
-		Module.FS.syncfs(false, function (err) {
-			syncing = false;
-			if (err) status('Saving to browser storage (IndexedDB) failed: ' + err + '. Use "Export save" to keep a copy.', true);
-			cbs.forEach(function (f) { f(err); });
-			if (syncAgain) { syncAgain = false; syncFiles(); }
-		});
-	}
 	function hasSave() { try { Module.FS.stat(SAVE); return true; } catch (e) { return false; } }
-	function exportSave() {
-		if (running) saveReq = true;
-		setTimeout(function () {
-			if (!hasSave()) { status('There is no saved game yet.', true); return; }
-			var a = document.createElement('a');
-			a.href = URL.createObjectURL(new Blob([Module.FS.readFile(SAVE)], { type: 'application/octet-stream' }));
-			a.download = 'player.sav';
-			document.body.appendChild(a); a.click();
-			setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-		}, running ? 1500 : 0);
-	}
-	function importSave(file) {
-		var r = new FileReader();
-		r.onload = function () {
-			if (!confirm('Replace the current game with "' + file.name + '"?')) return;
-			running = false;
-			Module.FS.writeFile(SAVE, new Uint8Array(r.result));
-			syncFiles(function (err) { if (!err) location.reload(); });
-		};
-		r.readAsArrayBuffer(file);
-	}
-	function newGame() {
-		if (!confirm('Delete the saved game in this browser and start a new one?')) return;
-		running = false;
-		if (hasSave()) Module.FS.unlink(SAVE);
-		syncFiles(function (err) { if (!err) location.reload(); });
-	}
-
-	/* ---------- help ---------- */
-	var helpLoaded = false;
-	function toggleHelp() {
-		var h = $('help');
-		h.hidden = !h.hidden;
-		if (!h.hidden && !helpLoaded) {
-			helpLoaded = true;
-			fetch('help.html').then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-				.then(function (t) { $('help-body').innerHTML = t; })
-				.catch(function (err) { helpLoaded = false; $('help-body').textContent = 'Could not load the guide (' + err + '). Press ? in the game for its own help.'; });
-		}
-		if (!h.hidden) $('help-body').focus();
-	}
+	function putSave(file, data) { Module.FS.writeFile(SAVE, data); }
+	function clearSave() { if (hasSave()) Module.FS.unlink(SAVE); }
 
 	/* ---------- fonts ---------- */
 	/* map font chooser: on the Map title bar (shown on hover) */
@@ -403,10 +328,12 @@
 		};
 		if (!n) { if (now) redraw(); return; }
 		var ff = new FontFace(n, 'url(../fonts/' + n + '.woff)');
-		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { status('Could not load the font ' + n + '.', true); });
+		ff.load().then(function () { document.fonts.add(ff); redraw(); }).catch(function () { app.status('Could not load the font ' + n + '.', true); });
 	}
 
 	/* ---------- startup ---------- */
+	app = RvipApp({ name: 'zapm', save: function () { return hasSave() ? SAVE : null; }, clear: clearSave, put: putSave,
+		flush: function (done) { saveReq = true; setTimeout(done, 1500); } });   /* the game saves at its next wantSave() poll */
 	window.Module = {
 		zp: zp,
 		arguments: ['-u', 'player'],
@@ -423,51 +350,29 @@
 			Module.addRunDependency('idbfs');
 			FS.syncfs(true, function (err) {
 				try { FS.mkdir(DIR + '/tmp'); } catch (e) { }   /* autosave writes here first */
-				if (err) status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
+				if (err) app.status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
 				Module.removeRunDependency('idbfs');
 			});
 		}],
 		onRuntimeInitialized: function () {
-			running = true;
+			app.running = true;
 			saveReq = true;          /* ZAPM deletes the save it loads: write it back at once */
-			status('');
+			app.status('');
 		},
 		print: function (s) { console.log(s); },
 		printErr: function (s) { console.warn(s); },
-		setStatus: function (s) { if (s && !running) status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
-		onAbort: function (what) { crashed(what); }
+		setStatus: function (s) { if (s && !app.running) app.status(s.replace(/\(\d+\/\d+\)/, '').trim() || 'Loading…'); },
+		onAbort: function (what) { app.crashed(what); }
 	};
-
-	function crashed(err) {
-		if (!running) return;
-		running = false;
-		var msg = (err && (err.message || err.reason && err.reason.message)) || String(err);
-		console.error('[zapm] crash:', err);
-		status('The game crashed (' + msg + '). Reload the page to continue from the last autosave.', true);
-	}
-	window.addEventListener('unhandledrejection', function (e) {
-		/* exit() unwinds with an ExitStatus; that is the normal end */
-		if (e.reason && e.reason.name === 'ExitStatus') return;
-		crashed(e.reason);
-	});
-	window.addEventListener('error', function (e) {
-		if (e.error && e.error.name === 'ExitStatus') return;
-		if (e.error instanceof WebAssembly.RuntimeError || /zapm-core/.test(e.filename || '')) crashed(e.error || e.message);
-	});
 
 	/* autosave: every 2 minutes and when the page is hidden */
 	setInterval(function () { saveReq = true; }, 120000);
-	document.addEventListener('visibilitychange', function () { if (document.hidden) saveReq = true; });
-	window.addEventListener('beforeunload', function (e) { if (running) { e.preventDefault(); e.returnValue = ''; } });
+	document.addEventListener('visibilitychange', function () { if (document.hidden) { saveReq = true; app.sync(); } });
+	window.addEventListener('pagehide', function () { app.sync(); });
+	window.addEventListener('beforeunload', function (e) { if (app.running) { e.preventDefault(); e.returnValue = ''; } });
 
 	document.addEventListener('keydown', onKey);
 	document.addEventListener('DOMContentLoaded', function () {
-		$('btn-export').onclick = exportSave;
-		$('btn-import').onclick = function () { $('import-file').click(); };
-		$('import-file').onchange = function () { if (this.files[0]) importSave(this.files[0]); this.value = ''; };
-		$('btn-new').onclick = newGame;
-		$('btn-help').onclick = toggleHelp;
-		$('help-close').onclick = toggleHelp;
 		RvipWM.dropdown($('btn-file'), $('menu-file'));
 		fetch('fonts.json').then(function (r) { return r.json(); }).then(function (list) {
 			[[$('sel-font'), 'face'], [mapSel, 'mapFace']].forEach(function (a) {
