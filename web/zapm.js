@@ -334,6 +334,13 @@
 	/* ---------- startup ---------- */
 	app = RvipApp({ name: 'zapm', save: function () { return hasSave() ? SAVE : null; }, clear: clearSave, put: putSave,
 		flush: function (done) { saveReq = true; setTimeout(done, 1500); } });   /* the game saves at its next wantSave() poll */
+	/* the player's name: asked once, kept in this game's IndexedDB folder (never localStorage) */
+	function askName(max, bad) {
+		var FS = Module.FS, f = DIR + '/web-name', n = '';
+		try { n = FS.readFile(f, { encoding: 'utf8' }); } catch (e) { }
+		if (!n) { n = (prompt('What is your name, adventurer?', '') || '').replace(bad, '').trim().slice(0, max); if (n) { FS.writeFile(f, n); app.sync(); } }
+		return n;
+	}
 	window.Module = {
 		zp: zp,
 		arguments: ['-u', 'player'],
@@ -343,14 +350,12 @@
 			FS.mount(Module.IDBFS, {}, DIR);
 			FS.chdir('/zapm');                   /* DATADIR "user" is relative */
 			Module.ENV.USER = 'player';
-			var who = '';                        /* the game plays as "player" (save file name), so ask once for the run report */
-			try { who = localStorage.getItem('zapm-name') || ''; } catch (err) { /* no storage */ }
-			if (!who) { who = (prompt('What is your name, adventurer?', '') || '').replace(/[,\n]/g, '').trim().slice(0, 30); try { if (who) localStorage.setItem('zapm-name', who); } catch (err) { /* no storage */ } }
-			if (who) Module.ENV.ZAPM_NAME = who;
 			Module.addRunDependency('idbfs');
 			FS.syncfs(true, function (err) {
 				try { FS.mkdir(DIR + '/tmp'); } catch (e) { }   /* autosave writes here first */
 				if (err) app.status('Could not read saved games from IndexedDB (' + err + '). Saving may not work in this browser mode.', true);
+				var who = askName(30, /[,\n]/g);   /* the game plays as "player" (save file name); the name is for the run report */
+				if (who) Module.ENV.ZAPM_NAME = who;
 				Module.removeRunDependency('idbfs');
 			});
 		}],
