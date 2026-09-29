@@ -38,6 +38,10 @@ extern "C" {
 void be_init(int p, int cols, int rows) { js_init(p, cols, rows); }
 void be_put(int p, int y, int x, chtype ch, int, int) { js_put(p, y, x, ch); }
 void be_cursor(int p, int y, int x) { js_cursor(p, y, x); }
+EM_JS(void, js_line, (int p, int y, const char *s, const char *c, int t), { Module.zp.line(p, y, UTF8ToString(s), UTF8ToString(c), t); });
+void be_line(int p, int y, const char *s, const char *css, int tile) { js_line(p, y, s, css, tile); }
+EM_JS(void, js_rows, (int p, int n), { Module.zp.rows(p, n); });
+void be_rows(int p, int n) { js_rows(p, n); }
 void be_popup(int rows, int cols) { js_popup(rows, cols); }
 
 /* Visible window (RVIP 5b): creatures the hero sees and objects on seen

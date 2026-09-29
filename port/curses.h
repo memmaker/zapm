@@ -86,7 +86,11 @@ void update_panels(void);
  * sized to its content. Text only. */
 enum { P_MAP, P_STATUS, P_MSG, P_INV, P_POP, NPANES };
 void be_init(int pane, int cols, int rows);
-void be_put(int pane, int y, int x, chtype ch, int tile, int under);
+void be_put(int pane, int y, int x, chtype ch, int tile, int under);   /* P_MAP only */
+/* text panes: row y trimmed, colour runs "\x05#rrggbb[/#bg]".."\x06",
+ * reverse \x01..\x02; row colour ("" = default), icon tile (-1: none) */
+void be_line(int pane, int y, const char *text, const char *css, int tile);
+void be_rows(int pane, int rows);         /* text pane: rows in use */
 void be_cursor(int pane, int y, int x);
 void be_prompt(const char *s);           /* live message row (rvip-wm.js prompt line) */   /* pane -1: no cursor */
 void be_popup(int rows, int cols);        /* 0: close */
@@ -102,6 +106,8 @@ void wc_push(int key);      /* queue a key for wgetch (item actions) */
 void wc_flushkeys(void);
 void wc_windows(WINDOW *map, WINDOW *side, WINDOW *log);
 void wc_inv(WINDOW *);      /* Rvip.cpp: inventory pane */
+WINDOW *wc_pane(int pane);  /* a text pane's cells (X11 draws rows from them) */
+const char *wc_color(chtype);      /* curses colour -> CSS */
 #ifdef __cplusplus
 }
 #endif

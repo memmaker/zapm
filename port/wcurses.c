@@ -10,7 +10,7 @@
 
 WINDOW *stdscr, *wc_mapwin, *wc_sidewin, *wc_logwin;
 int LINES = 25, COLS = 80, COLORS = 8, COLOR_PAIRS = 64;
-#define HIST 8             /* message history rows */
+#define HIST 200           /* message history rows */
 #define LIVE 5              /* live log rows */
 #define MAXINV 28
 static WINDOW *pn[NPANES];
@@ -229,14 +229,78 @@ static WINDOW *top_popup(void)
     return NULL;
 }
 
+/* a cell that shows nothing (unprintable chars are sent as blanks) */
+static int blank(chtype ch) { int c = ch & A_CHARTEXT; return (c <= ' ' || c > 126) && !(ch & A_REVERSE); }
+
+/* curses colours -> CSS (the page gets finished colours, W0): normal,
+ * bold (bright), dim; pair 0 = default gray */
+static const char *const PAL[3][8] = {
+    { "#000000", "#c82828", "#28b428", "#c8a028", "#3c5ae6", "#be3cbe", "#28b4be", "#c8c8c8" },
+    { "#6e6e6e", "#ff5a5a", "#64ff64", "#ffff5a", "#7896ff", "#ff6eff", "#6effff", "#ffffff" },
+    { "#000000", "#641414", "#145a14", "#645014", "#1e2d73", "#5f1e5f", "#145a5f", "#6e6e6e" } };
+
+const char *wc_color(chtype ch)
+{
+    int pair = PAIR_NUMBER(ch);
+    if (!pair && (ch & A_DIM)) return PAL[1][0];
+    return PAL[ch & A_BOLD ? 1 : ch & A_DIM ? 2 : 0][pair ? pair % 8 : 7];
+}
+
+WINDOW *wc_pane(int p) { return p >= 0 && p < NPANES ? pn[p] : NULL; }
+
+/* Text panes go out as whole rows (RVIP W0 rules 5, 6): each changed row
+ * once, trimmed, colour runs "\x05#rrggbb" .. "\x06" (reverse video in a
+ * colour: "\x05#000000/#rrggbb"), plain reverse between \x01 and \x02;
+ * and the rows in use (to the last non-blank one or the cursor). */
+static int rows_sent[NPANES], cur_p = -1, cur_y;
+
+static void run_key(chtype ch, char *k)
+{
+    const char *c = wc_color(ch);
+    int def = !strcmp(c, PAL[0][7]);
+    if (ch & A_REVERSE) {
+        if (def) strcpy(k, "\x01");
+        else sprintf(k, "\x05#000000/%s", c);
+    } else if (def) *k = 0;
+    else sprintf(k, "\x05%s", c);
+}
+
+
+static void send_rows(int i, int used)
+{
+    if (used != rows_sent[i]) be_rows(i, rows_sent[i] = used);
+}
+
 static void pflush(int i)
 {
     WINDOW *p = pn[i];
-    int y, x;
-    for (y = 0; p && y < p->maxy; y++) {
+    int y, x, used = 0;
+    if (!p) return;
+    for (y = 0; y < p->maxy; y++)
+        for (x = 0; x < p->maxx; x++)
+            if (!blank(p->c[y * p->maxx + x])) used = y + 1;
+    if (cur_p == i && cur_y >= used) used = cur_y + 1;
+    send_rows(i, used);
+    for (y = 0; y < p->maxy; y++) {
+        char buf[256 * 24], k[24], open[24] = "";
+        int n = 0, end = p->maxx;
         if (p->first[y] < 0) continue;
-        for (x = p->first[y]; x <= p->last[y]; x++) be_put(i, y, x, p->c[y * p->maxx + x], -1, -1);
         p->first[y] = p->last[y] = -1;
+        while (end > 0 && blank(p->c[y * p->maxx + end - 1])) end--;
+        for (x = 0; x < end && x < 256; x++) {
+            chtype ch = p->c[y * p->maxx + x];
+            int c = ch & A_CHARTEXT;
+            run_key(ch, k);
+            if (strcmp(k, open)) {
+                if (*open) buf[n++] = *open == 1 ? 2 : 6;
+                n += sprintf(buf + n, "%s", k);
+                strcpy(open, k);
+            }
+            buf[n++] = c < 32 || c > 126 ? ' ' : c;
+        }
+        if (*open) buf[n++] = *open == 1 ? 2 : 6;
+        buf[n] = 0;
+        be_line(i, y, buf, "", -1);
     }
 }
 
@@ -257,7 +321,7 @@ static void pop_refresh(WINDOW *w)
     pop_win = w;
     for (y = 0; y < w->maxy; y++)
         for (x = 0; x < w->maxx; x++) {
-            if ((w->c[y * w->maxx + x] & A_CHARTEXT) == ' ' && !(w->c[y * w->maxx + x] & A_REVERSE)) continue;
+            if (blank(w->c[y * w->maxx + x])) continue;
             if (y < y0) y0 = y;
             if (y > y1) y1 = y;
             if (x < x0) x0 = x;
@@ -270,6 +334,7 @@ static void pop_refresh(WINDOW *w)
         be_popup(pop_h, pop_w);
         delwin(pn[P_POP]);
         pn[P_POP] = newwin(pop_h, pop_w, 0, 0);
+        rows_sent[P_POP] = 0;
     }
     for (y = y0; y <= y1; y++)
         for (x = x0; x <= x1; x++) pset(pn[P_POP], y - y0, x - x0, w->c[y * w->maxx + x]);
@@ -312,12 +377,21 @@ int wnoutrefresh(WINDOW *w)
 }
 
 /* cursor goes to the window that waits for a key */
+static void set_cursor(int p, int y, int x)
+{
+    int o = cur_p;
+    cur_p = p; cur_y = y;
+    be_cursor(p, y, x);
+    if (p > P_MAP && y >= rows_sent[p]) send_rows(p, y + 1);   /* a text pane shows the cursor row */
+    if (o > P_MAP && o != p && pn[o] && (o != P_POP || pop_h)) pflush(o);   /* its rows in use without it */
+}
+
 static void cursor(WINDOW *w)
 {
-    if (w == wc_mapwin) be_cursor(P_MAP, w->cury, w->curx);
-    else if (w == wc_logwin) be_cursor(P_MSG, nhist + w->cury, w->curx);
-    else if (w && w == pop_win && pop_h) be_cursor(P_POP, w->cury - w->begy, w->curx - w->begx);
-    else be_cursor(-1, 0, 0);
+    if (w == wc_mapwin) set_cursor(P_MAP, w->cury, w->curx);
+    else if (w == wc_logwin) set_cursor(P_MSG, nhist + w->cury, w->curx);
+    else if (w && w == pop_win && pop_h) set_cursor(P_POP, w->cury - w->begy, w->curx - w->begx);
+    else set_cursor(-1, 0, 0);
 }
 
 int doupdate(void)

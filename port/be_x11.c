@@ -190,6 +190,16 @@ void be_put(int p, int y, int x, chtype ch, int tile, int under)
     draw_text(q, y, x, ch);
 }
 
+/* text panes: the row from the pane's cells, in their curses colours */
+void be_line(int p, int y, const char *text, const char *css, int tile)
+{
+    WINDOW *w = wc_pane(p);
+    int x;
+    if (!w || y >= w->maxy) return;
+    for (x = 0; x < w->maxx; x++) be_put(p, y, x, w->c[y * w->maxx + x], -1, -1);
+}
+void be_rows(int p, int rows) { }
+
 void be_cursor(int p, int y, int x) { curP = p; curY = y; curX = x; }
 
 void be_flush(void)
